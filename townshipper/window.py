@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import pyautogui
+import time
 
 screen_width, screen_height = pyautogui.size()
 image_width, image_height = pyautogui.screenshot().size
@@ -52,6 +53,12 @@ def full_screen():
             return True
 
     return False
+
+
+def back():
+    time.sleep(1)
+    pyautogui.press('esc')
+    return True
 
 
 class Barn:

@@ -11,8 +11,7 @@ time.sleep(10)
 if not messenger.init():
     exit()
 
-im = pyautogui.screenshot()
-messenger._send_mail('[HOME] ALL ACTIONS', '', im)
+messenger.receive_new_mail()
 
 
 # print(state.current_state)

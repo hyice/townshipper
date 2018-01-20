@@ -8,6 +8,9 @@ from email.header import Header
 from email.mime.multipart import MIMEMultipart, MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+import email
+import imaplib
+import socket
 
 # --------------------------------------------
 # Setup Config
@@ -18,6 +21,8 @@ _from_email = None
 _from_password = None
 _from_smtp_server = None
 _from_smtp_port = None
+_from_imap_server = None
+_from_imap_port = None
 
 _to_email = None
 
@@ -33,11 +38,14 @@ def init():
         if not _setup_to_config(config):
             return False
 
-    global _from_email, _from_password, _from_smtp_server, _from_smtp_port, _to_email
+    global _from_email, _from_password, _from_smtp_server, _from_smtp_port, _from_imap_server, _from_imap_port, _to_email
+
     _from_email = config.get('from', 'email')
     _from_password = config.get('from', 'password')
     _from_smtp_server = config.get('from', 'smtp_server')
     _from_smtp_port = config.get('from', 'smtp_port')
+    _from_imap_server = config.get('from', 'imap_server')
+    _from_imap_port = config.get('from', 'imap_port')
     _to_email = config.get('to', 'email')
 
     print('所有设置已完成，你可以打开 {0} 文件编辑已有的设置！\n'.format(CONFIG_FILE_PATH))
@@ -57,6 +65,8 @@ def _setup_from_config(config):
     from_password = input('请输入密码：')
     from_smtp_server = input('请输入邮箱发送服务器(SMTP)：\n')
     from_smtp_port = input('请输入端口号(TLS)：\n')
+    from_imap_server = input('请输入邮箱接收服务器(IMAP):\n')
+    from_imap_port = input('请输入端口号：\n')
 
     print('开始向邮箱服务器验证信息，请稍候...\n')
 
@@ -73,6 +83,8 @@ def _setup_from_config(config):
         config.set('from', 'password', from_password)
         config.set('from', 'smtp_server', from_smtp_server)
         config.set('from', 'smtp_port', from_smtp_port)
+        config.set('from', 'imap_server', from_imap_server)
+        config.set('from', 'imap_port', from_imap_port)
         with open(CONFIG_FILE_PATH, 'w') as file:
             config.write(file)
 
@@ -106,33 +118,35 @@ def _setup_to_config(config):
 # Mail
 
 
-def _smtp_server():
-    print('开始连接邮箱服务器...')
+def _smtp_server(timeout_retry_time=10, timeout=300):
+    print('开始连接邮箱SMTP服务器...')
     try:
-        server = smtplib.SMTP(_from_smtp_server, _from_smtp_port, timeout=10)
+
+        server = smtplib.SMTP(_from_smtp_server, _from_smtp_port, timeout=timeout)
         server.set_debuglevel(1)
         server.ehlo()
         server.starttls()
         server.login(_from_email, _from_password)
+
+        print('已成功连接SMTP服务器')
+
         return server
+    except TimeoutError:
+        if timeout_retry_time:
+            return _smtp_server(timeout_retry_time=timeout_retry_time-1)
+        else:
+            print('连接邮箱SMTP服务器超时！')
+            return None
     except Exception as e:
-        print('连接邮箱服务器失败：', e)
+        print('连接邮箱SMTP服务器失败：', e)
         return None
 
 
-def _send_mail(subject, content, image):
-    left_try_time = 10
+def send_mail(subject, content, image):
+    server = _smtp_server()
 
-    while True:
-        server = _smtp_server()
-
-        if server:
-            break
-
-        left_try_time -= 1
-
-        if left_try_time == 0:
-            return False
+    if server:
+        return False
 
     msg = MIMEMultipart()
     msg['From'] = formataddr((Header('Auto Shipper', 'utf8').encode(), _from_email))
@@ -160,3 +174,53 @@ def _send_mail(subject, content, image):
     server.sendmail(_from_email, _to_email, msg.as_string())
     server.quit()
     return True
+
+
+def _imap_server(timeout_retry_time=10, timeout=300):
+    print('开始连接邮箱IMAP服务器...')
+    try:
+        socket.setdefaulttimeout(timeout)
+        server = imaplib.IMAP4_SSL(_from_imap_server, _from_imap_port)
+        server.login(_from_email, _from_password)
+
+        print('已成功连接到IMAP服务器')
+
+        return server
+    except TimeoutError:
+        if timeout_retry_time:
+            return _imap_server(timeout_retry_time=timeout_retry_time - 1)
+        else:
+            print('连接邮箱IMAP服务器超时！')
+            return None
+    except Exception as e:
+        print('连接邮箱IMAP服务器失败：', e)
+        return None
+
+
+def receive_new_mail():
+    server = _imap_server()
+    if not server:
+        return None
+
+    print('开始检测新邮件...')
+    server.select()
+    search_result = server.uid('search', None, 'UnSeen From "{0}"'.format(_to_email))
+    mail_uids = (search_result[1][0].decode('utf8')).split()
+
+    if not mail_uids:
+        print('没有任何新邮件')
+        return None
+
+    uid = mail_uids[0]
+
+    ret_code, fetch_result = server.uid('fetch', uid, '(RFC822)')
+    if ret_code != 'OK':
+        print('获取邮件失败:', uid, ret_code)
+        return None
+
+    msg = email.message_from_bytes(fetch_result[0][1])
+    subject = msg['subject']
+
+    print('获取到新邮件：', subject)
+
+    return uid, subject

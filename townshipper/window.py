@@ -46,8 +46,7 @@ def screenshot(region=None, dpi=72, cv2_format=False):
     else:
         image = Image.open(file_name)
 
-    if region == CG.CGRectInfinite:
-        os.unlink(file_name)
+    os.unlink(file_name)
     return image
 
 
@@ -162,7 +161,25 @@ def hold(x, y, last_for=3.0):
 
 def drag(from_point, to_point):
     pyautogui.moveTo(*from_point)
-    pyautogui.dragTo(*to_point, duration=0.4)
+    pyautogui.dragTo(*to_point, duration=0.3)
+    time.sleep(0.2)
+
+
+def drag_through(points):
+    count = len(points)
+
+    if count < 2:
+        return
+
+    from_point = points[0]
+    to_points = points[1:]
+
+    pyautogui.mouseDown(*from_point)
+
+    for point in to_points:
+        pyautogui.moveTo(point, duration=0.2)
+
+    pyautogui.mouseUp()
     time.sleep(0.2)
 
 

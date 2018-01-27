@@ -154,25 +154,29 @@ class Field:
     all_items = "wheat,corn,carrot,sugarcane,cotton,strawberry,tomato,pine_tree"
 
     @classmethod
-    def plant(cls, item):
+    def plant(cls, item, positions=None):
         logger.debug('start to plant {0}'.format(item))
         if not cls._is_valid_plant(item):
-            logger.debug('failed to plant, it is not a valid plant')
+            logger.error('failed to plant, it is not a valid plant')
             return False
 
-        field_position = window.locate(cls.RESOURCE_BASE_DIR + 'empty_field.png', confidence=0.85)
-        if not field_position:
+        if not positions:
+            all_fields = tuple(window.locate_all(cls.RESOURCE_BASE_DIR + 'empty_field.png', confidence=0.85))
+        else:
+            all_fields = tuple(positions)
+
+        if len(all_fields) == 0:
             logger.debug('failed to plant, there is no empty field')
             return False
 
-        window.click(*field_position)
+        window.click(*all_fields[0])
 
         seed_position = window.locate(cls.RESOURCE_BASE_DIR + item + '_seed.png', confidence=0.85)
         if not seed_position:
-            logger.debug('failed to plant, can not get the seed')
+            logger.error('failed to plant, can not get the seed')
             return False
 
-        window.drag(seed_position, field_position)
+        window.drag_through((seed_position, *all_fields))
         logger.debug('finished planting')
         return True
 
@@ -180,25 +184,30 @@ class Field:
     def harvest(cls, item, plant_new=False):
         logger.debug('start to harvest {0}'.format(item))
         if not cls._is_valid_plant(item):
-            logger.debug('--> [failed] to harvest, it is not a valid plant')
+            logger.error('--> [failed] to harvest, it is not a valid plant')
             return False
 
-        has_harvested = False
+        all_ripe_items = tuple(window.locate_all(cls.RESOURCE_BASE_DIR + item + '.png', confidence=0.85))
 
-        for position in window.locate_all(cls.RESOURCE_BASE_DIR + item + '.png', confidence=0.9):
-            window.double_click(*position)
+        if len(all_ripe_items) == 0:
+            logger.debug('failed to harvest, there is no ripe item')
+            return False
 
-            if Barn.is_full():
-                logger.debug('--> [failed] to harvest, because the barn is full')
-                raise BarnIsFull
+        if len(all_ripe_items) == 1:
+            window.double_click(*all_ripe_items[0])
+        else:
+            window.click(*all_ripe_items[0])
+            window.drag_through(all_ripe_items)
 
-            has_harvested = True
+        if Barn.is_full():
+            logger.debug('--> [failed] to harvest, because the barn is full')
+            raise BarnIsFull
 
-            if plant_new:
-                logger.debug('start to plant at harvested place')
-                cls._plant_at(item, position)
+        if plant_new:
+            logger.debug('start to plant at harvested place')
+            cls.plant(item, positions=all_ripe_items)
 
-        return has_harvested
+        return True
 
     @classmethod
     def _is_valid_plant(cls, item):
@@ -207,16 +216,6 @@ class Field:
             return False
         return True
 
-    @classmethod
-    def _plant_at(cls, item, field_position):
-        window.click(*field_position)
-
-        seed_position = window.locate(cls.RESOURCE_BASE_DIR + item + '_seed.png', confidence=0.85)
-        if not seed_position:
-            return False
-
-        window.drag(seed_position, field_position)
-        return True
 
 class BarnIsFull(Exception):
     pass

@@ -3,7 +3,7 @@
 
 import messenger
 import commander
-import window
+import game
 import time
 
 # if not messenger.init():
@@ -12,19 +12,19 @@ import time
 # commander.check_and_handle_new_command()
 
 def auto_planting():
-    time.sleep(10)
+    # time.sleep(5)
 
     plant = 'wheat'
     while True:
 
-        while window.Field.plant(plant):
+        while game.Field.plant(plant):
             pass
 
         while True:
             try:
-                result = window.Field.harvest(plant, plant_new=True)
-            except window.BarnIsFull:
-                window.Barn.sell(plant, -2)
+                result = game.Field.harvest(plant, plant_new=True)
+            except game.BarnIsFull:
+                game.Barn.sell(plant, -2)
             else:
                 if not result:
                     break

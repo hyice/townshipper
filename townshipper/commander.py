@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import messenger
+import game
 import window
 
 

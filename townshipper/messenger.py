@@ -142,10 +142,10 @@ def _smtp_server(timeout_retry_time=10, timeout=300):
         return None
 
 
-def send_mail(subject, content, image):
+def send_mail(subject, content, image=None):
     server = _smtp_server()
 
-    if server:
+    if not server:
         return False
 
     msg = MIMEMultipart()

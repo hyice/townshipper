@@ -1,31 +1,38 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import state
 import messenger
-import pyautogui
+import commander
+import window
 import time
 
-time.sleep(10)
-
-if not messenger.init():
-    exit()
-
-messenger.receive_new_mail()
-
-
-# print(state.current_state)
+# if not messenger.init():
+#     exit()
 #
-# state.current_state[0]()
-#
-# print(state.current_state)
-#
-# state.current_state[2]()
-#
-# print(state.current_state)
+# commander.check_and_handle_new_command()
 
+def auto_planting():
+    time.sleep(10)
 
+    plant = 'wheat'
+    while True:
 
+        while window.Field.plant(plant):
+            pass
 
+        while True:
+            try:
+                result = window.Field.harvest(plant, plant_new=True)
+            except window.BarnIsFull:
+                window.Barn.sell(plant, -2)
+            else:
+                if not result:
+                    break
 
-
+if __name__ == '__main__':
+    try:
+        # time.sleep(10)
+        # window._all_locations_for_image('resource/field/wheat.png', confidence=0.8)
+        auto_planting()
+    except KeyboardInterrupt:
+        exit(0)
